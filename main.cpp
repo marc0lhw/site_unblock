@@ -69,13 +69,13 @@ int Adddummy(char * fakebuf, char * buf, int size) {
 	return size + dummylen;
 }
 
-void *t_receive_packet(void *th_data)
+void *th_func(void *th_data)
 {
   	int childfd; /* child socket */
-	int Tosssockfd;
-	struct hostent *Tossserver;
-	struct sockaddr_in Tossserveraddr;
-	int Tossportno = 80;
+	int Serverfd;
+	struct hostent *Server;
+	struct sockaddr_in Serveraddr;
+	int Serverportno = 80;
   	char buf[BUFSIZE]; /* message buffer */
   	int n; /* message byte size */
 	int shift=0;
@@ -102,38 +102,38 @@ void *t_receive_packet(void *th_data)
     	getHost(hostname, buf, shift==0? n:shift);
 //	printf("host : \n%s\n", hostname);
 
-    	Tosssockfd = socket(AF_INET, SOCK_STREAM, 0);
-    	if (Tosssockfd < 0)
+    	Serverfd = socket(AF_INET, SOCK_STREAM, 0);
+    	if (Serverfd < 0)
         	error("ERROR opening socket");
-	Tossserver = gethostbyname(hostname);
-    	if (Tossserver == NULL) {
+	Server = gethostbyname(hostname);
+    	if (Server == NULL) {
 //        	printf("ERROR, no such host as %s\n", hostname);
 //		printf("buf : \n%s\n", buf);
-		close(Tosssockfd);
+		close(Serverfd);
 		close(childfd);
 		return NULL;
 	}
 
-	bzero((char *) &Tossserveraddr, sizeof(Tossserveraddr));
-   	Tossserveraddr.sin_family = AF_INET;
-    	bcopy((char *)Tossserver->h_addr, (char *)&Tossserveraddr.sin_addr.s_addr, Tossserver->h_length);
-    	Tossserveraddr.sin_port = htons(Tossportno);
+	bzero((char *) &Serveraddr, sizeof(Serveraddr));
+   	Serveraddr.sin_family = AF_INET;
+    	bcopy((char *)Server->h_addr, (char *)&Serveraddr.sin_addr.s_addr, Server->h_length);
+    	Serveraddr.sin_port = htons(Serverportno);
 
 //	connect with server
-    	if (connect(Tosssockfd, (const sockaddr*)&Tossserveraddr, sizeof(Tossserveraddr)) < 0)
+    	if (connect(Serverfd, (const sockaddr*)&Serveraddr, sizeof(Serveraddr)) < 0)
       		error("ERROR connecting");
 
 //	make fakebuf
 	char fakebuf[BUFSIZE];
 	int fakebuflen = Adddummy(fakebuf, buf, shift==0? n:shift);
 
-    	n = write(Tosssockfd, fakebuf, fakebuflen);
+    	n = write(Serverfd, fakebuf, fakebuflen);
     	if (n < 0)
       		error("ERROR writing to socket");
 
 	while(1){
 	        bzero(buf, BUFSIZE);
-		n = read(Tosssockfd, buf, BUFSIZE);
+		n = read(Serverfd, buf, BUFSIZE);
 		if ( n == 0 || n == -1) break;
 //   		printf("Echo from server: %d bytes\n", n);
 
@@ -150,7 +150,7 @@ void *t_receive_packet(void *th_data)
 			break;
 		}
 	}
-	close(Tosssockfd);
+	close(Serverfd);
     	close(childfd);
 //	printf("[*] Thread Finish\n\n");
 }
@@ -216,7 +216,7 @@ int main(int argc, char **argv) {
         	struct THREAD_DATA th_data;
         	th_data._childfd = childfd;
 
-        	int thr_id = pthread_create(&p_thread, NULL, t_receive_packet, (void *)&th_data);
+        	int thr_id = pthread_create(&p_thread, NULL, th_func, (void *)&th_data);
         	if (thr_id < 0)
         	{
                 	perror("thread create error : ");
@@ -228,3 +228,5 @@ int main(int argc, char **argv) {
 
   	close(parentfd);
 }
+
+
